@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+api_url="http://localhost:3333/api"
+
+pwd=$(pwd)
+dir=$(basename $pwd)
+
+if [[ $dir -eq "promor" ]]; then
+    scripts="$pwd/scripts"
+fi
+
+source "$scripts/utils.sh"
+source "$scripts/stores.sh"
+
+modules=(
+    "stores"
+)
+
+case $(printf '%s\n' "${modules[@]}" | fzf) in
+    "stores") handle_stores;;
+    *) echo "unknown module, exiting";;
+esac
