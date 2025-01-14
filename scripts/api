@@ -11,12 +11,15 @@ fi
 
 source "$scripts/utils.sh"
 source "$scripts/stores.sh"
+source "$scripts/pages.sh"
 
 modules=(
     "stores"
+    "pages"
 )
 
 case $(printf '%s\n' "${modules[@]}" | fzf) in
     "stores") handle_stores;;
+    "pages") handle_pages;;
     *) echo "unknown module, exiting";;
 esac

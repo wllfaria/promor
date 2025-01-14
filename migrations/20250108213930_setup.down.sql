@@ -1,4 +1,6 @@
+DROP TABLE IF EXISTS product_prices;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS pages;
 DROP TABLE IF EXISTS stores;
-DROP TABLE IF EXISTS store_handlers;
-DROP TABLE IF EXISTS store_apis;
-DROP TABLE IF EXISTS store_handler_types;
+DROP TABLE IF EXISTS base_table;
+DROP TABLE IF EXISTS timestamps_table;

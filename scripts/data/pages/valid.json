@@ -1,0 +1,7 @@
+{
+  "name": "Kabum Ryzen 7",
+  "url": "https://www.kabum.com.br/busca/ryzen-7",
+  "storeId": 1,
+  "handler": "kabum_search",
+  "pageKind": "search"
+}

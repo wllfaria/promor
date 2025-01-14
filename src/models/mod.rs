@@ -1,2 +1,2 @@
-pub mod handler;
+pub mod page;
 pub mod store;

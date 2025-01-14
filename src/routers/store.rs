@@ -5,7 +5,7 @@ use sqlx::PgPool;
 
 use crate::error::AppError;
 use crate::handlers;
-use crate::models::store::{CreateStorePayload, Dirty, Store};
+use crate::models::store::{CreateStorePayload, Store};
 
 pub fn store_routes() -> Router {
     Router::new()
@@ -29,7 +29,7 @@ async fn get_one(Extension(db): Extension<PgPool>, Path(id): Path<i32>) -> anyho
 #[axum::debug_handler]
 async fn create(
     Extension(db): Extension<PgPool>,
-    Json(payload): Json<CreateStorePayload<Dirty>>,
+    Json(payload): Json<CreateStorePayload>,
 ) -> Result<Json<Store>, AppError> {
     let response = handlers::store::create(&db, payload).await?;
     Ok(Json(response))

@@ -1,7 +1,7 @@
 use sqlx::PgPool;
 
 use crate::error::AppError;
-use crate::models::store::{CreateStorePayload, Dirty, Store, StoreId};
+use crate::models::store::{CreateStorePayload, Store, StoreId};
 
 #[tracing::instrument(skip_all)]
 pub async fn get_all(db: &PgPool) -> anyhow::Result<Vec<Store>> {
@@ -17,7 +17,7 @@ pub async fn get_one(db: &PgPool, id: i32) -> anyhow::Result<Store, AppError> {
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn create(db: &PgPool, payload: CreateStorePayload<Dirty>) -> anyhow::Result<Store, AppError> {
+pub async fn create(db: &PgPool, payload: CreateStorePayload) -> anyhow::Result<Store, AppError> {
     let payload = payload.parse()?;
     let store = Store::create(db, payload).await?;
     Ok(store)
