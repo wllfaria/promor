@@ -21,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new().nest("/api", api_routes).layer(Extension(db.clone()));
 
-    scraper::start_thread(db);
+    scraper::start_thread(db).await?;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3333").await.unwrap();
     axum::serve(listener, app).await.unwrap();

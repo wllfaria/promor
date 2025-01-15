@@ -20,15 +20,22 @@ CREATE TABLE IF NOT EXISTS pages (
     url TEXT NOT NULL,
     store_id INT REFERENCES stores(id) ON DELETE CASCADE NOT NULL,
     handler TEXT NOT NULL,
-    page_kind TEXT NOT NULL
+    page_kind TEXT NOT NULL,
+    ean TEXT,
+    gtin TEXT
 ) INHERITS (base_table);
 
 CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     brand VARCHAR(100) NOT NULL,
-    image TEXT
+    image TEXT,
+    ean TEXT,
+    gtin TEXT
 ) INHERITS (base_table);
+
+CREATE INDEX ean_idx ON products (ean);
+CREATE INDEX gtin_idx ON products (gtin);
 
 CREATE TABLE IF NOT EXISTS product_prices (
     id SERIAL PRIMARY KEY,

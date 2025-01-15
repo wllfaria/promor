@@ -1,13 +1,13 @@
 use headless_chrome::Browser;
 use sqlx::PgPool;
 
-use super::{PageParser, QueuePage};
+use super::{QueuePage, ScrapHandler};
 use crate::models::page::Page;
 use crate::models::store::Store;
 
 pub struct PageScraper<P>
 where
-    P: PageParser,
+    P: ScrapHandler<Input = Store, Output = Vec<QueuePage>>,
 {
     db: PgPool,
     page: Page,
@@ -16,7 +16,7 @@ where
 
 impl<P> PageScraper<P>
 where
-    P: PageParser,
+    P: ScrapHandler<Input = Store, Output = Vec<QueuePage>>,
 {
     pub fn new(page: Page, db: PgPool, parser: P) -> Self {
         Self { db, page, parser }
@@ -28,6 +28,6 @@ where
 
         tab.navigate_to(self.page.url.as_str())?;
 
-        self.parser.parse(tab.clone(), store)
+        self.parser.run(tab.clone(), store).await
     }
 }

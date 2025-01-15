@@ -35,12 +35,14 @@ impl PageId {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub enum PageHandler {
     KabumSearch,
+    KabumProduct,
 }
 
 impl PageHandler {
     pub fn inner(&self) -> &str {
         match self {
             PageHandler::KabumSearch => "kabum_search",
+            PageHandler::KabumProduct => "kabum_product",
         }
     }
 }
@@ -93,6 +95,8 @@ pub struct Page {
     pub handler: PageHandler,
     #[serde(rename = "pageKind")]
     pub page_kind: PageKind,
+    pub ean: Option<String>,
+    pub gtin: Option<String>,
     pub active: bool,
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Utc>,
@@ -110,6 +114,8 @@ struct PageRow {
     pub store_id: i32,
     pub handler: String,
     pub page_kind: String,
+    pub ean: Option<String>,
+    pub gtin: Option<String>,
     pub active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -167,6 +173,8 @@ impl From<PageRow> for Page {
             handler: PageHandler::try_from(value.handler).expect("invalid page handler on the database"),
             page_kind: PageKind::try_from(value.page_kind).expect("invalid page kind on the database"),
             active: value.active,
+            ean: value.ean,
+            gtin: value.gtin,
             created_at: value.created_at,
             updated_at: value.updated_at,
             deleted_at: value.deleted_at,

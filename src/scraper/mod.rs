@@ -1,11 +1,12 @@
-pub mod kabum_search_parser;
+pub mod kabum_product_handler;
+pub mod kabum_search_handler;
 pub mod page_scraper;
 pub mod queue_scraper;
 
 use std::sync::Arc;
 
 use headless_chrome::{Browser, Tab};
-use kabum_search_parser::KabumSearchParser;
+use kabum_search_handler::KabumSearchHandler;
 use page_scraper::PageScraper;
 use queue_scraper::QueueScraper;
 use sqlx::PgPool;
@@ -13,10 +14,13 @@ use tokio::sync::Semaphore;
 use url::Url;
 
 use crate::models::page::{Page, PageHandler};
-use crate::models::store::{Store, StoreId};
+use crate::models::store::StoreId;
 
-pub trait PageParser: Send {
-    fn parse(&mut self, tab: Arc<Tab>, store: Store) -> anyhow::Result<Vec<QueuePage>>;
+pub trait ScrapHandler: Send {
+    type Input;
+    type Output;
+
+    async fn run(&mut self, tab: Arc<Tab>, page: Self::Input) -> anyhow::Result<Self::Output>;
 }
 
 #[derive(Debug)]
@@ -27,8 +31,8 @@ pub struct QueuePage {
 }
 
 #[tracing::instrument(skip_all)]
-pub fn start_thread(db: PgPool) {
-    tokio::spawn(async move {
+pub async fn start_thread(db: PgPool) -> anyhow::Result<()> {
+    let handle = tokio::spawn(async move {
         const INTERVAL_SECS: u64 = 60 * 60 * 24;
         const CONCURRENT_LIMIT: usize = 2;
 
@@ -37,19 +41,33 @@ pub fn start_thread(db: PgPool) {
 
         loop {
             interval.tick().await;
+            tracing::info!("starting scraper routine");
 
-            let urls = match scrap_search_pages(&db, &semaphore).await {
+            let browser = match Browser::default() {
+                Ok(browser) => browser,
+                Err(_) => return,
+            };
+
+            let urls = match scrap_search_pages(&db, &browser, &semaphore).await {
                 Ok(ScrapResult::Finished(result)) => result,
-                Ok(ScrapResult::Skip) => continue,
+                Ok(ScrapResult::Skip) => {
+                    tracing::warn!("skipping scraper routine");
+                    continue;
+                }
                 Err(_) => continue,
             };
 
-            match QueueScraper::new(db.clone(), urls).run().await {
-                Ok(_) => todo!(),
+            match QueueScraper::new(db.clone()).run(&browser, urls).await {
+                Ok(_) => tracing::info!("finished queue handler"),
                 Err(_) => todo!(),
             }
         }
     });
+
+    match handle.await {
+        Ok(_) => Ok(()),
+        Err(e) => anyhow::bail!(e),
+    }
 }
 
 pub enum ScrapResult<T> {
@@ -57,14 +75,20 @@ pub enum ScrapResult<T> {
     Skip,
 }
 
-async fn scrap_search_pages(db: &PgPool, semaphore: &Arc<Semaphore>) -> anyhow::Result<ScrapResult<Vec<QueuePage>>> {
+#[tracing::instrument(skip_all)]
+async fn scrap_search_pages(
+    db: &PgPool,
+    browser: &Browser,
+    semaphore: &Arc<Semaphore>,
+) -> anyhow::Result<ScrapResult<Vec<QueuePage>>> {
+    tracing::info!("starting to scrap search pages");
+
     let Ok(pages) = Page::get_all_search_pages(db).await else {
         tracing::error!("failed to fetch stores from database");
         return Ok(ScrapResult::Skip);
     };
 
     let mut handles = vec![];
-    let browser = Browser::default()?;
 
     for page in pages {
         let permit = semaphore.clone().acquire_owned().await.unwrap();
@@ -76,15 +100,22 @@ async fn scrap_search_pages(db: &PgPool, semaphore: &Arc<Semaphore>) -> anyhow::
             // resources by scraping threads
             let _permit = permit;
 
+            let store_id = page.store_id;
+
             let result = match page.handler {
-                PageHandler::KabumSearch => PageScraper::new(page, db, KabumSearchParser).run(&browser).await,
+                PageHandler::KabumSearch => {
+                    PageScraper::new(page, db, KabumSearchHandler::new(store_id))
+                        .run(&browser)
+                        .await
+                }
+                PageHandler::KabumProduct => unreachable!(),
             };
 
             match result {
-                Ok(urls) => urls,
+                Ok(urls) => Ok(urls),
                 Err(e) => {
                     tracing::error!("failed to scrap page with error: {e}");
-                    vec![]
+                    anyhow::bail!("failed to scrap page with error: {e}");
                 }
             }
         });
@@ -94,7 +125,7 @@ async fn scrap_search_pages(db: &PgPool, semaphore: &Arc<Semaphore>) -> anyhow::
 
     let mut urls = vec![];
     for handle in handles {
-        let handle_urls = handle.await.unwrap();
+        let handle_urls = handle.await.unwrap()?;
         urls.extend(handle_urls);
     }
 
