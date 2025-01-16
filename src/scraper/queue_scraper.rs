@@ -32,12 +32,13 @@ impl QueueScraper {
 
             let permit = semaphore.clone().acquire_owned().await?;
             let tab = browser.new_tab()?;
+            let db = self.db.clone();
 
             let handle = tokio::spawn(async move {
                 let _permit = permit;
 
                 let mut handler = match page.handler {
-                    PageHandler::KabumProduct => KabumProductHandler::default(),
+                    PageHandler::KabumProduct => KabumProductHandler::new(db),
                     PageHandler::KabumSearch => unreachable!(),
                 };
 

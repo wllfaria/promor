@@ -6,30 +6,10 @@ use url::Url;
 use validator::Validate;
 
 use super::store::StoreId;
+use crate::newtype_id;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PageId(i32);
-
-impl PageId {
-    pub async fn new(db: &PgPool, id: i32) -> anyhow::Result<Self> {
-        let result = sqlx::query!("SELECT EXISTS(SELECT 1 FROM pages WHERE id = $1)", id)
-            .fetch_one(db)
-            .await?;
-
-        if !result.exists.unwrap_or_default() {
-            anyhow::bail!("invalid page id");
-        }
-
-        Ok(Self(id))
-    }
-
-    pub fn new_unchecked(id: i32) -> Self {
-        Self(id)
-    }
-
-    pub fn inner(&self) -> i32 {
-        self.0
-    }
+newtype_id! {
+    PageId => pages
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
@@ -87,7 +67,7 @@ impl TryFrom<String> for PageKind {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Page {
-    pub id: i32,
+    pub id: PageId,
     pub name: String,
     pub url: Url,
     #[serde(rename = "storeId")]
@@ -166,7 +146,7 @@ impl CreatePagePayload {
 impl From<PageRow> for Page {
     fn from(value: PageRow) -> Self {
         Self {
-            id: value.id,
+            id: PageId::new_unchecked(value.id),
             name: value.name,
             url: Url::parse(&value.url).expect("url should be valid when querying the database"),
             store_id: StoreId::new_unchecked(value.store_id),

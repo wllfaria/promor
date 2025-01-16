@@ -28,11 +28,13 @@ pub struct QueuePage {
     pub url: Url,
     pub store_id: StoreId,
     pub handler: PageHandler,
+    pub ean: Option<String>,
+    pub gtin: Option<String>,
 }
 
 #[tracing::instrument(skip_all)]
 pub async fn start_thread(db: PgPool) -> anyhow::Result<()> {
-    let handle = tokio::spawn(async move {
+    tokio::spawn(async move {
         const INTERVAL_SECS: u64 = 60 * 60 * 24;
         const CONCURRENT_LIMIT: usize = 2;
 
@@ -63,11 +65,7 @@ pub async fn start_thread(db: PgPool) -> anyhow::Result<()> {
             }
         }
     });
-
-    match handle.await {
-        Ok(_) => Ok(()),
-        Err(e) => anyhow::bail!(e),
-    }
+    Ok(())
 }
 
 pub enum ScrapResult<T> {
@@ -104,9 +102,13 @@ async fn scrap_search_pages(
 
             let result = match page.handler {
                 PageHandler::KabumSearch => {
-                    PageScraper::new(page, db, KabumSearchHandler::new(store_id))
-                        .run(&browser)
-                        .await
+                    PageScraper::new(
+                        KabumSearchHandler::new(store_id, page.ean.clone(), page.gtin.clone()),
+                        db,
+                        page,
+                    )
+                    .run(&browser)
+                    .await
                 }
                 PageHandler::KabumProduct => unreachable!(),
             };

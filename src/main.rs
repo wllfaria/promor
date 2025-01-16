@@ -1,5 +1,7 @@
+mod discord;
 mod error;
 mod handlers;
+mod macros;
 mod models;
 mod routers;
 mod scraper;
@@ -17,10 +19,15 @@ async fn main() -> anyhow::Result<()> {
 
     let api_routes = Router::new()
         .merge(routers::store::store_routes())
-        .merge(routers::page::page_routes());
+        .merge(routers::page::page_routes())
+        .merge(routers::product::product_routes())
+        .merge(routers::product_price::product_price_routes());
 
     let app = Router::new().nest("/api", api_routes).layer(Extension(db.clone()));
 
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+
+    discord::start_thread(rx).await?;
     scraper::start_thread(db).await?;
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3333").await.unwrap();

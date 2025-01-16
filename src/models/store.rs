@@ -6,35 +6,15 @@ use url::Url;
 use validator::Validate;
 
 use crate::error::AppError;
+use crate::newtype_id;
 
-#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
-pub struct StoreId(i32);
-
-impl StoreId {
-    pub async fn new(db: &PgPool, id: i32) -> anyhow::Result<Self> {
-        let result = sqlx::query!("SELECT EXISTS(SELECT 1 FROM stores WHERE id = $1)", id)
-            .fetch_one(db)
-            .await?;
-
-        if !result.exists.unwrap_or_default() {
-            anyhow::bail!("invalid store id");
-        }
-
-        Ok(Self(id))
-    }
-
-    pub fn new_unchecked(id: i32) -> Self {
-        Self(id)
-    }
-
-    pub fn inner(&self) -> i32 {
-        self.0
-    }
+newtype_id! {
+    StoreId => stores
 }
 
 #[derive(Debug, Serialize)]
 pub struct Store {
-    pub id: i32,
+    pub id: StoreId,
     pub name: String,
     pub url: Url,
     pub active: bool,
@@ -60,7 +40,7 @@ pub struct StoreRow {
 impl From<StoreRow> for Store {
     fn from(value: StoreRow) -> Self {
         Store {
-            id: value.id,
+            id: StoreId::new_unchecked(value.id),
             name: value.name,
             url: Url::parse(&value.url).expect("url should be valid when querying the database"),
             active: value.active,

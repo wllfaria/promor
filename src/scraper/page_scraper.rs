@@ -18,7 +18,7 @@ impl<P> PageScraper<P>
 where
     P: ScrapHandler<Input = Store, Output = Vec<QueuePage>>,
 {
-    pub fn new(page: Page, db: PgPool, parser: P) -> Self {
+    pub fn new(parser: P, db: PgPool, page: Page) -> Self {
         Self { db, page, parser }
     }
 

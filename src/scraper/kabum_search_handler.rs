@@ -9,11 +9,13 @@ use crate::models::store::{Store, StoreId};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KabumSearchHandler {
     store_id: StoreId,
+    ean: Option<String>,
+    gtin: Option<String>,
 }
 
 impl KabumSearchHandler {
-    pub fn new(store_id: StoreId) -> Self {
-        Self { store_id }
+    pub fn new(store_id: StoreId, ean: Option<String>, gtin: Option<String>) -> Self {
+        Self { store_id, ean, gtin }
     }
 }
 
@@ -40,6 +42,8 @@ impl ScrapHandler for KabumSearchHandler {
                 url: full_url,
                 store_id: self.store_id,
                 handler: PageHandler::KabumProduct,
+                ean: self.ean.clone(),
+                gtin: self.gtin.clone(),
             })
         }
 
