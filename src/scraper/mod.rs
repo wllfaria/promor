@@ -25,6 +25,7 @@ pub trait ScrapHandler: Send {
 
 #[derive(Debug)]
 pub struct QueuePage {
+    pub name: String,
     pub url: Url,
     pub store_id: StoreId,
     pub handler: PageHandler,
@@ -81,7 +82,7 @@ async fn scrap_search_pages(
 ) -> anyhow::Result<ScrapResult<Vec<QueuePage>>> {
     tracing::info!("starting to scrap search pages");
 
-    let Ok(pages) = Page::get_all_search_pages(db).await else {
+    let Ok(Some(pages)) = Page::get_all_search_pages(db).await else {
         tracing::error!("failed to fetch stores from database");
         return Ok(ScrapResult::Skip);
     };

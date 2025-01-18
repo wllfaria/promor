@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS pages (
 CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
+    url TEXT,
     brand VARCHAR(100) NOT NULL,
     image TEXT,
     ean TEXT,

@@ -77,38 +77,41 @@ impl CreateStorePayload {
 }
 
 impl Store {
-    pub async fn get_all(db: &PgPool) -> anyhow::Result<Vec<Store>> {
-        let stores = sqlx::query_as!(StoreRow, "SELECT * FROM stores")
+    pub async fn get_all(db: &PgPool) -> anyhow::Result<Option<Vec<Store>>> {
+        let result = sqlx::query_as!(StoreRow, "SELECT * FROM stores WHERE active = true")
             .fetch_all(db)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+            .await;
 
-        Ok(stores)
+        match result {
+            Ok(stores) => Ok(Some(stores.into_iter().map(Into::into).collect())),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    pub async fn get_by_id(db: &PgPool, id: StoreId) -> anyhow::Result<Store> {
+    pub async fn get_by_id(db: &PgPool, id: StoreId) -> anyhow::Result<Option<Store>> {
         let store = sqlx::query_as!(StoreRow, "SELECT * FROM stores WHERE id = $1", id.inner())
-            .fetch_one(db)
+            .fetch_optional(db)
             .await?
-            .into();
+            .map(Into::into);
 
         Ok(store)
     }
 
     pub async fn create(db: &PgPool, page: ValidCreateStorePayload) -> anyhow::Result<Store> {
-        let id = sqlx::query_as!(
-            Store,
-            "INSERT INTO stores (url, name) VALUES ($1, $2)",
+        let store = sqlx::query_as!(
+            StoreRow,
+            r#"
+            INSERT INTO stores (url, name)
+            VALUES ($1, $2)
+            RETURNING *
+            "#,
             &page.url.to_string(),
             &page.name,
         )
-        .execute(db)
+        .fetch_one(db)
         .await?
-        .rows_affected();
-
-        let store = Store::get_by_id(db, StoreId::new_unchecked(id as i32)).await?;
+        .into();
 
         Ok(store)
     }

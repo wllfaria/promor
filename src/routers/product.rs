@@ -3,6 +3,7 @@ use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use sqlx::PgPool;
 
+use super::HttpResponse;
 use crate::error::AppError;
 use crate::handlers;
 use crate::models::product::{CreateProductPayload, Product};
@@ -15,22 +16,27 @@ pub fn product_routes() -> Router {
 }
 
 #[axum::debug_handler]
-async fn get_all(Extension(db): Extension<PgPool>) -> anyhow::Result<Json<Vec<Product>>, AppError> {
-    let response = handlers::product::get_all(&db).await?;
-    Ok(Json(response))
+async fn get_all(
+    Extension(db): Extension<PgPool>,
+) -> anyhow::Result<Json<HttpResponse<Option<Vec<Product>>>>, AppError> {
+    let body = handlers::product::get_all(&db).await?;
+    Ok(Json(HttpResponse::ok(body)))
 }
 
 #[axum::debug_handler]
-async fn get_one(Extension(db): Extension<PgPool>, Path(id): Path<i32>) -> anyhow::Result<Json<Product>, AppError> {
-    let response = handlers::product::get_one(&db, id).await?;
-    Ok(Json(response))
+async fn get_one(
+    Extension(db): Extension<PgPool>,
+    Path(id): Path<i32>,
+) -> anyhow::Result<Json<HttpResponse<Option<Product>>>, AppError> {
+    let body = handlers::product::get_one(&db, id).await?;
+    Ok(Json(HttpResponse::ok(body)))
 }
 
 #[axum::debug_handler]
 async fn create(
     Extension(db): Extension<PgPool>,
     Json(payload): Json<CreateProductPayload>,
-) -> Result<Json<Product>, AppError> {
-    let response = handlers::product::create(&db, payload).await?;
-    Ok(Json(response))
+) -> Result<Json<HttpResponse<Product>>, AppError> {
+    let body = handlers::product::create(&db, payload).await?;
+    Ok(Json(HttpResponse::created(body)))
 }

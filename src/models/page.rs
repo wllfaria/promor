@@ -163,52 +163,63 @@ impl From<PageRow> for Page {
 }
 
 impl Page {
-    pub async fn get_all(db: &PgPool) -> anyhow::Result<Vec<Page>> {
-        let pages = sqlx::query_as!(PageRow, "SELECT * FROM pages")
+    pub async fn get_all(db: &PgPool) -> anyhow::Result<Option<Vec<Page>>> {
+        let result = sqlx::query_as!(PageRow, "SELECT * FROM pages WHERE active = true")
             .fetch_all(db)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+            .await;
 
-        Ok(pages)
+        match result {
+            Ok(pages) => Ok(Some(pages.into_iter().map(Into::into).collect())),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(other) => Err(other.into()),
+        }
     }
 
-    pub async fn get_all_search_pages(db: &PgPool) -> anyhow::Result<Vec<Page>> {
-        let pages = sqlx::query_as!(PageRow, "SELECT * FROM pages WHERE page_kind = 'search'")
-            .fetch_all(db)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+    pub async fn get_all_search_pages(db: &PgPool) -> anyhow::Result<Option<Vec<Page>>> {
+        let result = sqlx::query_as!(
+            PageRow,
+            "SELECT * FROM pages WHERE page_kind = 'search' AND active = true"
+        )
+        .fetch_all(db)
+        .await;
 
-        Ok(pages)
+        match result {
+            Ok(pages) => Ok(Some(pages.into_iter().map(Into::into).collect())),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(other) => Err(other.into()),
+        }
     }
 
-    pub async fn get_by_id(db: &PgPool, id: PageId) -> anyhow::Result<Page> {
-        let page = sqlx::query_as!(PageRow, "SELECT * FROM pages WHERE id = $1", id.inner())
-            .fetch_one(db)
-            .await?
-            .into();
+    pub async fn get_by_id(db: &PgPool, id: PageId) -> anyhow::Result<Option<Page>> {
+        let page = sqlx::query_as!(
+            PageRow,
+            "SELECT * FROM pages WHERE id = $1 AND active = true",
+            id.inner()
+        )
+        .fetch_optional(db)
+        .await?
+        .map(Into::into);
 
         Ok(page)
     }
 
     pub async fn create(db: &PgPool, page: ValidCreatePagePayload) -> anyhow::Result<Page> {
-        let id = sqlx::query_as!(
+        let page = sqlx::query_as!(
             PageRow,
-            "INSERT INTO pages (name, url, store_id, handler, page_kind) VALUES ($1, $2, $3, $4, $5)",
+            r#"
+            INSERT INTO pages (name, url, store_id, handler, page_kind)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+            "#,
             &page.name,
             page.url.as_str(),
             page.store_id.inner(),
             page.handler.inner(),
             page.page_kind.inner(),
         )
-        .execute(db)
+        .fetch_one(db)
         .await?
-        .rows_affected();
-
-        let page = Page::get_by_id(db, PageId::new_unchecked(id as i32)).await?;
+        .into();
 
         Ok(page)
     }

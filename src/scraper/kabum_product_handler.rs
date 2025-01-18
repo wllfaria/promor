@@ -6,8 +6,8 @@ use sqlx::PgPool;
 use url::Url;
 
 use super::{QueuePage, ScrapHandler};
-use crate::models::product::Product;
-use crate::models::product_price::{CreateProductPricePayload, ProductPrice, ValidCreateProductPricePayload};
+use crate::models::product::{CreateProductPayload, Product};
+use crate::models::product_price::{CreateProductPricePayload, ProductPrice};
 
 #[derive(Debug)]
 pub struct KabumProductHandler {
@@ -61,25 +61,36 @@ impl ScrapHandler for KabumProductHandler {
 
         tracing::error!("so, we got here");
 
-        let mut url = self.api.to_string();
-        url.push_str(product_id);
-        let url = Url::parse(&url).unwrap();
+        let mut raw_url = self.api.to_string();
+        raw_url.push_str(product_id);
+        let url = Url::parse(&raw_url).unwrap();
 
         let response = reqwest::get(url).await?;
         let body = response.text().await?;
         let body = serde_json::from_str::<KabumProductDescription>(&body)?;
 
-        let result = match (page.ean.as_ref(), page.gtin.as_ref()) {
-            (Some(ean), _) => Product::get_by_ean(&self.db, ean).await,
-            (_, Some(gtin)) => Product::get_by_gtin(&self.db, gtin).await,
-            (None, None) => todo!(),
+        let product = match (page.ean.as_ref(), page.gtin.as_ref()) {
+            (Some(ean), _) => Product::get_by_ean(&self.db, ean).await?,
+            (_, Some(gtin)) => Product::get_by_gtin(&self.db, gtin).await?,
+            (None, None) => Product::get_by_url(&self.db, &page.url).await?,
         };
 
-        let product = match result {
-            Ok(product) => product,
-            Err(_) => {
-                tracing::error!("product not registered on the database");
-                anyhow::bail!("TODO: this should not crash the thread");
+        let product = match product {
+            Some(product) => product,
+            None => {
+                Product::create(
+                    &self.db,
+                    CreateProductPayload {
+                        name: page.name,
+                        brand: body.manufacturer.name,
+                        url: Some(page.url.to_string()),
+                        image: None,
+                        ean: page.ean.clone(),
+                        gtin: page.ean.clone(),
+                    }
+                    .parse()?,
+                )
+                .await?
             }
         };
 

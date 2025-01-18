@@ -29,7 +29,19 @@ impl ScrapHandler for KabumSearchHandler {
         let mut links = vec![];
 
         for product in products {
-            let Some(url) = product.find_element(".productLink")?.get_attribute_value("href")? else {
+            let Ok(link_element) = product.find_element(".productLink") else {
+                continue;
+            };
+
+            let Ok(Some(url)) = link_element.get_attribute_value("href") else {
+                continue;
+            };
+
+            let Ok(name_element) = product.find_element(".nameCard") else {
+                continue;
+            };
+
+            let Ok(name) = name_element.get_inner_text() else {
                 continue;
             };
 
@@ -39,6 +51,7 @@ impl ScrapHandler for KabumSearchHandler {
             full_url.set_path(&url);
 
             links.push(QueuePage {
+                name,
                 url: full_url,
                 store_id: self.store_id,
                 handler: PageHandler::KabumProduct,

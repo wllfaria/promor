@@ -3,6 +3,7 @@ use axum::routing::get;
 use axum::{Extension, Json, Router};
 use sqlx::PgPool;
 
+use super::HttpResponse;
 use crate::error::AppError;
 use crate::handlers;
 use crate::models::product_price::ProductPrice;
@@ -14,16 +15,18 @@ pub fn product_price_routes() -> Router {
 }
 
 #[axum::debug_handler]
-async fn get_all(Extension(db): Extension<PgPool>) -> anyhow::Result<Json<Vec<ProductPrice>>, AppError> {
+async fn get_all(
+    Extension(db): Extension<PgPool>,
+) -> anyhow::Result<Json<HttpResponse<Option<Vec<ProductPrice>>>>, AppError> {
     let response = handlers::product_price::get_all(&db).await?;
-    Ok(Json(response))
+    Ok(Json(HttpResponse::ok(response)))
 }
 
 #[axum::debug_handler]
 async fn get_one(
     Extension(db): Extension<PgPool>,
     Path(id): Path<i32>,
-) -> anyhow::Result<Json<ProductPrice>, AppError> {
+) -> anyhow::Result<Json<HttpResponse<Option<ProductPrice>>>, AppError> {
     let response = handlers::product_price::get_one(&db, id).await?;
-    Ok(Json(response))
+    Ok(Json(HttpResponse::ok(response)))
 }

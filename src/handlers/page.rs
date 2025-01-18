@@ -4,13 +4,13 @@ use crate::error::AppError;
 use crate::models::page::{CreatePagePayload, Page, PageId};
 
 #[tracing::instrument(skip_all)]
-pub async fn get_all(db: &PgPool) -> anyhow::Result<Vec<Page>> {
+pub async fn get_all(db: &PgPool) -> anyhow::Result<Option<Vec<Page>>> {
     let stores = Page::get_all(db).await?;
     Ok(stores)
 }
 
 #[tracing::instrument(skip_all)]
-pub async fn get_one(db: &PgPool, id: i32) -> anyhow::Result<Page, AppError> {
+pub async fn get_one(db: &PgPool, id: i32) -> anyhow::Result<Option<Page>, AppError> {
     let id = PageId::new(db, id).await?;
     let store = Page::get_by_id(db, id).await?;
     Ok(store)

@@ -87,43 +87,46 @@ impl CreateProductPricePayload {
 }
 
 impl ProductPrice {
-    pub async fn get_all(db: &PgPool) -> anyhow::Result<Vec<ProductPrice>> {
-        let stores = sqlx::query_as!(ProductPriceRow, "SELECT * FROM product_prices")
+    pub async fn get_all(db: &PgPool) -> anyhow::Result<Option<Vec<ProductPrice>>> {
+        let result = sqlx::query_as!(ProductPriceRow, "SELECT * FROM product_prices")
             .fetch_all(db)
-            .await?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+            .await;
 
-        Ok(stores)
+        match result {
+            Ok(prices) => Ok(Some(prices.into_iter().map(Into::into).collect())),
+            Err(sqlx::Error::RowNotFound) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    pub async fn get_by_id(db: &PgPool, id: ProductPriceId) -> anyhow::Result<ProductPrice> {
+    pub async fn get_by_id(db: &PgPool, id: ProductPriceId) -> anyhow::Result<Option<ProductPrice>> {
         let store = sqlx::query_as!(
             ProductPriceRow,
             "SELECT * FROM product_prices WHERE id = $1",
             id.inner()
         )
-        .fetch_one(db)
+        .fetch_optional(db)
         .await?
-        .into();
+        .map(Into::into);
 
         Ok(store)
     }
 
     pub async fn create(db: &PgPool, payload: ValidCreateProductPricePayload) -> anyhow::Result<ProductPrice> {
-        let id = sqlx::query_as!(
+        let product = sqlx::query_as!(
             ProductPriceRow,
-            "INSERT INTO product_prices (product_id, store_id, price) VALUES ($1, $2, $3)",
+            r#"
+            INSERT INTO product_prices (product_id, store_id, price)
+            VALUES ($1, $2, $3)
+            RETURNING *
+            "#,
             &payload.product_id.inner(),
             &payload.store_id.inner(),
             &payload.price,
         )
-        .execute(db)
+        .fetch_one(db)
         .await?
-        .rows_affected();
-
-        let product = ProductPrice::get_by_id(db, ProductPriceId::new_unchecked(id as i32)).await?;
+        .into();
 
         Ok(product)
     }
